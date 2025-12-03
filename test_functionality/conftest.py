@@ -21,7 +21,7 @@ def setup(request):
     # Chrome + ChromeDriver will be auto-detected
     driver = webdriver.Chrome(options=chrome_option)
 
-    driver.implicitly_wait(10)
+    driver.implicitly_wait(20)
     driver.get(url)
 
     # Assign driver to class

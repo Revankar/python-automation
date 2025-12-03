@@ -14,7 +14,7 @@ class Base:
         attempt = 0
         while attempt < retries:
             try:
-                element = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable(locator))
+                element = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable(locator))
                 element.click()
                 return  # Exit function if successful
             except (TimeoutException, NoSuchElementException) as e:

@@ -6,6 +6,7 @@ from locators.amazon import Amazon
 class NewAccountPage(Base):
     log = Base.getLogger()
     def login(self,email, password):
+        time.sleep(5)
         self.click(Amazon.sign_in_btn)
         self.clearAndSendText(Amazon.email_field,email)
         self.click(Amazon.continue_btn)

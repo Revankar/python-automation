@@ -3,12 +3,11 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import pytest
-from utilities.readproperties import Readconfig
 
 @pytest.fixture
 def setup(request):
 
-    url = Readconfig.getApplicationURL()
+    url = 'https://www.amazon.in/'
 
     chrome_option = webdriver.ChromeOptions()
     # chrome_option.add_argument("--start-maximized")

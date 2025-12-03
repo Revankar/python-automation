@@ -1,0 +1,9 @@
+2025-10-30 16:04:39,302 | INFO     | AgenticAI:54 | 🧠 Available Ollama models: ['llama3.1:latest', 'mistral:latest', 'llama3:latest']
+2025-10-30 16:04:39,312 | INFO     | AgenticAI:71 | 🧩 Ollama reachable.
+2025-10-30 16:04:39,314 | INFO     | AgenticAI:43 | ✅ Connected to Ollama model 'llama3.1' successfully.
+2025-10-30 16:05:02,726 | INFO     | AgenticAI:207 | 🎯 Found 3 relevant elements for 'Login'
+2025-10-30 16:05:02,726 | INFO     | AgenticAI:168 | 📄 Cleaned HTML length: 116
+2025-10-30 16:06:03,367 | INFO     | AgenticAI:111 | ✅ HTML-based repair successful → //a[@class='_1jKL3b']", thinking=None, images=None, tool_name=None, tool_calls=None)
+2025-10-30 16:06:03,375 | INFO     | AgenticAI:291 | 📝 Locator 'Login' updated → //a[@class='_1jKL3b']"
+2025-10-30 16:06:03,375 | ERROR    | AgenticAI:302 | ❌ Locator 'Login' not found on page.
+2025-10-30 16:06:03,385 | ERROR    | AgenticAI:116 | ❌ Both URL and HTML-based repair failed for 'Login'

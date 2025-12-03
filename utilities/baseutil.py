@@ -10,11 +10,11 @@ from selenium.webdriver.support import expected_conditions as EC
 @pytest.mark.usefixtures("setup")
 class Base:
 
-    def click(self,locator,retries=2, delay=2):
+    def click(self,locator,retries=5, delay=2):
         attempt = 0
         while attempt < retries:
             try:
-                element = WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable(locator))
+                element = WebDriverWait(self.driver, 20).until(EC.presence_of_element_located(locator))
                 element.click()
                 return  # Exit function if successful
             except (TimeoutException, NoSuchElementException) as e:

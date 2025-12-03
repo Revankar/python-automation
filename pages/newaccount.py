@@ -7,6 +7,10 @@ class NewAccountPage(Base):
     log = Base.getLogger()
     def login(self,email, password):
         time.sleep(5)
+        try:
+            self.driver.find_element(By.ID, "sp-cc-accept").click()
+        except:
+            pass
         self.click(Amazon.sign_in_btn)
         self.clearAndSendText(Amazon.email_field,email)
         self.click(Amazon.continue_btn)

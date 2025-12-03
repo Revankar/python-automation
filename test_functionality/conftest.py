@@ -12,7 +12,7 @@ def setup(request):
     chrome_option = Options()
 
     # Required for GitHub Actions Linux headless execution
-    chrome_option.add_argument("--headless=new")
+    # chrome_option.add_argument("--headless=new")
     chrome_option.add_argument("--no-sandbox")
     chrome_option.add_argument("--disable-dev-shm-usage")
     chrome_option.add_argument("--disable-gpu")

@@ -14,19 +14,31 @@ class Base:
         attempt = 0
         while attempt < retries:
             try:
-                element = WebDriverWait(self.driver, 20).until(EC.presence_of_element_located(locator))
+                element = WebDriverWait(self.driver, 20).until(
+                    EC.presence_of_element_located(locator)
+                )
+                # Scroll element into view
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+                # Wait until clickable
+                element = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable(locator)
+                )
                 element.click()
-                return  # Exit function if successful
+                return
             except (TimeoutException, NoSuchElementException) as e:
-                if attempt == retries - 1:
-                    raise NoSuchElementException(f"Element {locator} not found after {retries} attempts - FAIL")
+                attempt += 1
+                time.sleep(delay)
+                if attempt == retries:
+                    raise NoSuchElementException(
+                        f"Element {locator} not found after {retries} attempts - FAIL"
+                    )
             except StaleElementReferenceException:
-                if attempt == retries - 1:
+                attempt += 1
+                time.sleep(delay)
+                if attempt == retries:
                     raise StaleElementReferenceException(
-                        f"Element {locator} became stale after {retries} attempts - FAIL")
-
-            attempt += 1
-            time.sleep(delay)  # Wait before retrying
+                        f"Element {locator} became stale after {retries} attempts - FAIL"
+                    )
 
     def click1(self,locator):
         try:

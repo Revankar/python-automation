@@ -1,5 +1,6 @@
 import time
 
+from selenium.webdriver.common.by import By
 from utilities.baseutil import Base
 from locators.amazon import Amazon
 
@@ -14,9 +15,10 @@ class NewAccountPage(Base):
         self.click(Amazon.sign_in_btn)
         self.clearAndSendText(Amazon.email_field,email)
         self.click(Amazon.continue_btn)
+        time.sleep(5)
         self.sendText(Amazon.password_field,password)
         self.click(Amazon.submit)
-        time.sleep(5)
-        account_text = self.getText(Amazon.accountTxt)
-        self.log.info(f"captch page displayed successfully. Account element found:{account_text}")
+        # time.sleep(5)
+        # account_text = self.getText(Amazon.accountTxt)
+        # self.log.info(f"captch page displayed successfully. Account element found:{account_text}")
 

@@ -1,28 +1,28 @@
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import pytest
-from datetime import datetime
-
 
 @pytest.fixture
 def setup(request):
     url = "https://www.amazon.in/"
 
-    chrome_option = webdriver.ChromeOptions()
+    chrome_options = webdriver.ChromeOptions()
 
-    # Required for CI environments
-    chrome_option.add_argument("--headless=new")  # Headless mode
-    chrome_option.add_argument("--no-sandbox")  # Disable sandbox
-    chrome_option.add_argument("--disable-dev-shm-usage")  # Avoid shared memory issues
-    chrome_option.add_argument("--disable-gpu")  # Disable GPU acceleration
-    chrome_option.add_argument("--window-size=1920,1080")
-    chrome_option.add_argument("--lang=en-IN")
-    chrome_option.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_option.add_experimental_option("useAutomationExtension", False)
+    # CI-friendly options
+    chrome_options.add_argument("--headless=new")          # Latest headless mode
+    chrome_options.add_argument("--no-sandbox")            # Required in GitHub Actions
+    chrome_options.add_argument("--disable-dev-shm-usage") # Avoid limited /dev/shm errors
+    chrome_options.add_argument("--disable-gpu")           # Disable GPU
+    chrome_options.add_argument("--window-size=1920,1080") # Avoid mobile layout
+    chrome_options.add_argument("--lang=en-IN")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option("useAutomationExtension", False)
 
+    # Initialize ChromeDriver
     s = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=s, options=chrome_option)
+    driver = webdriver.Chrome(service=s, options=chrome_options)
     driver.implicitly_wait(10)
     driver.get(url)
 

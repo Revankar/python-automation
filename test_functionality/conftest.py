@@ -6,7 +6,7 @@ import pytest
 
 @pytest.fixture
 def setup(request):
-    url = "https://www.amazon.in/"
+    url = "https://opensource-demo.orangehrmlive.com/"
 
     chrome_options = webdriver.ChromeOptions()
 

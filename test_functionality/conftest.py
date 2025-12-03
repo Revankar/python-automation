@@ -1,36 +1,34 @@
 from datetime import datetime
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 import pytest
+
 
 @pytest.fixture
 def setup(request):
 
-    url = 'https://www.amazon.in/'
+    url = "https://www.amazon.in/"
 
-    chrome_option = webdriver.ChromeOptions()
-    # chrome_option.add_argument("--start-maximized")
-    # chrome_option.add_argument("--headless=new")
-    # chrome_option.add_argument("--disable-dev-shm-usage")
-    # chrome_option.add_argument("--no-sandbox")
-    # chrome_option.add_argument("--disable-gpu")
-    # chrome_option.add_argument("--lang=en-IN")
-    # chrome_option.add_argument("--window-size=1920,1080")
-    # chrome_option.add_experimental_option("excludeSwitches", ["enable-automation"])
-    # chrome_option.add_experimental_option("useAutomationExtension", False)
+    chrome_option = Options()
 
-    s = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=s, options=chrome_option)
+    # Required for GitHub Actions Linux headless execution
+    chrome_option.add_argument("--headless=new")
+    chrome_option.add_argument("--no-sandbox")
+    chrome_option.add_argument("--disable-dev-shm-usage")
+    chrome_option.add_argument("--disable-gpu")
+    chrome_option.add_argument("--window-size=1920,1080")
+
+    # Chrome + ChromeDriver will be auto-detected
+    driver = webdriver.Chrome(options=chrome_option)
+
     driver.implicitly_wait(10)
     driver.get(url)
 
-    # Assign driver to test class if it exists
+    # Assign driver to class
     if hasattr(request, "cls") and request.cls is not None:
         request.cls.driver = driver
 
-    start_time = datetime.now()
-    print(f"\n[Test Started at]: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print("\n[Test Started at]:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-    # Yield driver to the test
     yield driver
+    driver.quit()

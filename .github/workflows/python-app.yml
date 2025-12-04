@@ -3,10 +3,10 @@ name: Python Test Automation with Allure Report
 on:
   push:
     branches:
-      - pytest-automation      # <<< Run workflow on every push to this branch
+      - pytest-automation
   schedule:
-    - cron: "0 9 * * *"      # Runs daily at 9:00 UTC
-  workflow_dispatch:          # Optional manual run
+    - cron: "0 9 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -41,9 +41,9 @@ jobs:
           pip install -r requirements.txt
           pip install allure-pytest
 
-          wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
           sudo apt-get update
           sudo apt-get install -y unzip
+          wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
           unzip allure-2.29.0.zip -d /opt/allure
           sudo ln -s /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
 
@@ -62,12 +62,12 @@ jobs:
 
       - name: Copy latest report
         run: |
-          mkdir -p site
           rm -rf site/latest
           cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
-          
+
       - name: Generate Reports Index Page
         run: |
+          mkdir -p site/reports
           echo "<html><body><h1>All Test Reports</h1><ul>" > site/reports/index.html
           for dir in site/reports/*/ ; do
             ts=$(basename "$dir")
@@ -76,8 +76,6 @@ jobs:
             fi
           done
           echo "</ul></body></html>" >> site/reports/index.html
-
-
 
       - name: Upload GitHub Pages Artifact
         uses: actions/upload-pages-artifact@v4
@@ -97,7 +95,7 @@ jobs:
 
       - name: Print Allure URL
         run: |
-            echo "Latest Report:"
-            echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
-            echo "All Reports:"
-            echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"
+          echo "Latest Report:"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
+          echo "All Reports:"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"

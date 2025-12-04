@@ -24,7 +24,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -47,7 +47,7 @@ jobs:
           allure generate allure-results-${{ steps.vars.outputs.timestamp }} -o allure-report-${{ steps.vars.outputs.timestamp }} --clean
 
       - name: Upload report to GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
         with:
           path: allure-report-${{ steps.vars.outputs.timestamp }}
 

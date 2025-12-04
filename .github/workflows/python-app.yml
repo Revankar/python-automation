@@ -29,42 +29,50 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install allure-pytest
 
-      - name: Create timestamp
+      - name: Install Allure CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-jre
+          wget https://github.com/allure-framework/allure2/releases/latest/download/allure-commandline.tgz
+          tar -xzf allure-commandline.tgz
+          sudo mv allure-*/bin/allure /usr/local/bin/allure
+          allure --version
+
+      - name: Generate timestamp
         id: vars
-        run: echo "timestamp=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+        run: echo "ts=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
       - name: Run tests
         continue-on-error: true
         run: |
-          pytest --alluredir=allure-results-${{ steps.vars.outputs.timestamp }}
+          pytest --alluredir=allure-results-${{ steps.vars.outputs.ts }}
 
-      - name: Generate Allure report
+      - name: Generate HTML report
         if: always()
         run: |
-          allure generate allure-results-${{ steps.vars.outputs.timestamp }} \
-            -o allure-report-${{ steps.vars.outputs.timestamp }} --clean
+          allure generate allure-results-${{ steps.vars.outputs.ts }} \
+            -o allure-report-${{ steps.vars.outputs.ts }} --clean
 
-      - name: Debug
+      - name: Prepare Pages deployment folder
         if: always()
-        run: ls -R .
+        run: |
+          mkdir -p _site
+          cp -r allure-report-${{ steps.vars.outputs.ts }}/* _site/
 
-      - name: Upload Pages artifact
-        if: always()
+      - name: Upload Pages dir
         uses: actions/upload-pages-artifact@v3
         with:
-          path: allure-report-${{ steps.vars.outputs.timestamp }}
+          path: _site
 
   deploy:
-    needs: test
     if: always()
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

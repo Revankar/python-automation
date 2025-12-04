@@ -43,19 +43,20 @@ jobs:
           pytest --alluredir=allure-results-${{ steps.vars.outputs.timestamp }}
 
       - name: Generate Allure HTML report
-        if: always()      # IMPORTANT
+        if: always()
         run: |
           pip install allure-pytest
           allure generate allure-results-${{ steps.vars.outputs.timestamp }} \
             -o allure-report-${{ steps.vars.outputs.timestamp }} --clean
 
       - name: Upload report to GitHub Pages artifact
-        if: always()      # IMPORTANT
+        if: always()
         uses: actions/upload-pages-artifact@v3
         with:
           path: allure-report-${{ steps.vars.outputs.timestamp }}
 
   deploy:
+    if: always()     # <<< FIX — Deploy even if test job failed
     needs: test
     runs-on: ubuntu-latest
     environment:
@@ -64,6 +65,5 @@ jobs:
 
     steps:
       - name: Deploy to GitHub Pages
-        if: always()      # IMPORTANT
         id: deployment
         uses: actions/deploy-pages@v4

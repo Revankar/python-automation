@@ -1,8 +1,10 @@
-name: Python Test Automation with Allure Report.
+name: Python Test Automation with Allure Report
 
-# Manual trigger only
 on:
-  workflow_dispatch:
+  workflow_dispatch:        # Manual trigger
+  push:
+    branches:
+      - pytest-automation     # Automatically run on push to this branch
 
 permissions:
   contents: write
@@ -17,8 +19,8 @@ jobs:
       - name: Checkout latest code from branch
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0       # Fetch full history
-          ref: test-automation # Always checkout latest commit on this branch
+          fetch-depth: 0
+          ref: pytest-automation
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,7 +38,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install allure-pytest
-
           wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
           sudo apt-get update
           sudo apt-get install -y unzip
@@ -45,7 +46,6 @@ jobs:
 
       - name: Run Pytest
         run: pytest -v -s --alluredir=allure-results || true
-        # || true ensures workflow continues even if tests fail or are skipped
 
       - name: Generate Allure Report
         run: allure generate allure-results -o site --clean
@@ -59,7 +59,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     environment:
-      name: github-pages # Make sure environment is protected for test-automation branch
+      name: github-pages
 
     steps:
       - name: Deploy Allure Report to GitHub Pages

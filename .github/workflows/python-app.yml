@@ -6,7 +6,7 @@ on:
       - pytest-automation
   workflow_dispatch:
   schedule:
-    - cron: "40 14 * * *"   # 8:10 PM IST
+    - cron: "40 14 * * *"
 
 permissions:
   contents: write
@@ -17,9 +17,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -27,38 +26,40 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
-      - name: Generate timestamp folder for report
+      - name: Generate timestamp
         id: vars
-        run: |
-          TS=$(date +%Y%m%d%H%M%S)
-          echo "timestamp=$TS" >> $GITHUB_OUTPUT
-          mkdir -p "allure-results-$TS"
+        run: echo "timestamp=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
-      - name: Run tests (continue even on failure)
+      - name: Run tests
         continue-on-error: true
         run: |
+          mkdir -p allure-results-${{ steps.vars.outputs.timestamp }}
           pytest --alluredir=allure-results-${{ steps.vars.outputs.timestamp }}
 
-      - name: Generate Allure HTML report
+      - name: Generate Allure Report
         if: always()
         run: |
           pip install allure-pytest
+          mkdir -p allure-report-${{ steps.vars.outputs.timestamp }}
           allure generate allure-results-${{ steps.vars.outputs.timestamp }} \
-            -o allure-report-${{ steps.vars.outputs.timestamp }} --clean
+            -o allure-report-${{ steps.vars.outputs.timestamp }} --clean || true
+
+      - name: Debug – List Allure report folder
+        if: always()
+        run: ls -R .
 
       - name: Upload report to GitHub Pages artifact
         if: always()
         uses: actions/upload-pages-artifact@v3
         with:
-          name: github-pages    # REQUIRED for deploy-pages
+          name: github-pages
           path: allure-report-${{ steps.vars.outputs.timestamp }}
 
   deploy:
-    if: always()     # Deploy even if tests failed
     needs: test
+    if: always()
     runs-on: ubuntu-latest
     environment:
       name: github-pages

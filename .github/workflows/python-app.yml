@@ -47,11 +47,23 @@ jobs:
           unzip allure-2.29.0.zip -d /opt/allure
           sudo ln -s /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
 
+      - name: Generate Timestamp
+        id: ts
+        run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+
       - name: Run Pytest
         run: pytest -v -s --alluredir=allure-results || true
 
       - name: Generate Allure Report
-        run: allure generate allure-results -o site --clean
+        run: |
+            mkdir -p site/reports/${{ steps.ts.outputs.TS }}/
+            allure generate allure-results \
+              -o site/reports/${{ steps.ts.outputs.TS }}/ --clean
+
+      - name: Copy latest report
+        run: |
+          rm -rf site/latest
+          cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
 
       - name: Upload GitHub Pages Artifact
         uses: actions/upload-pages-artifact@v4
@@ -71,5 +83,7 @@ jobs:
 
       - name: Print Allure URL
         run: |
-          echo "✅ Your Allure Report URL:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+            echo "Latest Report:"
+            echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
+            echo "All Reports:"
+            echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"

@@ -1,10 +1,12 @@
 name: Python Test Automation with Allure Report
 
 on:
-  workflow_dispatch:        # Manual trigger
   push:
     branches:
-      - pytest-automation     # Automatically run on push to this branch
+      - pytest-automation
+  workflow_dispatch:     # Manual run
+  schedule:
+    - cron: "40 14 * * *"   # Runs daily at 8:10 PM IST (14:40 UTC)
 
 permissions:
   contents: write
@@ -14,59 +16,49 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout latest code from branch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: pytest-automation
+
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.10"
 
-      - name: Install Chrome
-        uses: browser-actions/setup-chrome@v1
-
-      - name: Install ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-
-      - name: Install dependencies + Allure CLI
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Generate timestamp folder for report
+        id: vars
+        run: |
+          TS=$(date +%Y%m%d%H%M%S)
+          echo "timestamp=$TS" >> $GITHUB_OUTPUT
+          mkdir -p "allure-results-$TS"
+
+      - name: Run tests
+        run: |
+          pytest --alluredir=allure-results-${{ steps.vars.outputs.timestamp }}
+
+      - name: Generate Allure HTML report
+        run: |
           pip install allure-pytest
-          wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
-          sudo apt-get update
-          sudo apt-get install -y unzip
-          unzip allure-2.29.0.zip -d /opt/allure
-          sudo ln -s /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
+          allure generate allure-results-${{ steps.vars.outputs.timestamp }} -o allure-report-${{ steps.vars.outputs.timestamp }} --clean
 
-      - name: Run Pytest
-        run: pytest -v -s --alluredir=allure-results || true
-
-      - name: Generate Allure Report
-        run: allure generate allure-results -o site --clean
-
-      - name: Upload GitHub Pages Artifact
-        uses: actions/upload-pages-artifact@v4
+      - name: Upload report to GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v2
         with:
-          path: site
+          path: allure-report-${{ steps.vars.outputs.timestamp }}
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Deploy Allure Report to GitHub Pages
-        id: deploy
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Print Allure URL
-        run: |
-          echo "✅ Your Allure Report URL:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"

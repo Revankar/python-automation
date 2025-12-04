@@ -21,5 +21,4 @@ class NewAccountPage(Base):
         time.sleep(5)
         self.sendText(Amazon.password_field, password)
         self.click(Amazon.sign_in_btn)
-        self.driver.switch_to.alert.accept()
         self.log.info(f"signed in successfully.")

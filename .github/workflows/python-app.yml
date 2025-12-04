@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - pytest-automation
-  workflow_dispatch:     # Manual run
+  workflow_dispatch:
   schedule:
-    - cron: "40 14 * * *"   # Runs daily at 8:10 PM IST (14:40 UTC)
+    - cron: "40 14 * * *"   # 8:10 PM IST
 
 permissions:
   contents: write
@@ -37,16 +37,20 @@ jobs:
           echo "timestamp=$TS" >> $GITHUB_OUTPUT
           mkdir -p "allure-results-$TS"
 
-      - name: Run tests
+      - name: Run tests (continue even on failure)
+        continue-on-error: true
         run: |
           pytest --alluredir=allure-results-${{ steps.vars.outputs.timestamp }}
 
       - name: Generate Allure HTML report
+        if: always()      # IMPORTANT
         run: |
           pip install allure-pytest
-          allure generate allure-results-${{ steps.vars.outputs.timestamp }} -o allure-report-${{ steps.vars.outputs.timestamp }} --clean
+          allure generate allure-results-${{ steps.vars.outputs.timestamp }} \
+            -o allure-report-${{ steps.vars.outputs.timestamp }} --clean
 
       - name: Upload report to GitHub Pages artifact
+        if: always()      # IMPORTANT
         uses: actions/upload-pages-artifact@v3
         with:
           path: allure-report-${{ steps.vars.outputs.timestamp }}
@@ -60,5 +64,6 @@ jobs:
 
     steps:
       - name: Deploy to GitHub Pages
+        if: always()      # IMPORTANT
         id: deployment
         uses: actions/deploy-pages@v4

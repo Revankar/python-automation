@@ -51,6 +51,21 @@ jobs:
         id: ts
         run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
+      # ➤ IMPORTANT: Load previous reports from gh-pages
+      - name: Download existing GitHub Pages content
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: existing-pages
+        continue-on-error: true
+
+      - name: Prepare site folder with previous reports
+        run: |
+          mkdir -p site/reports
+          if [ -d "existing-pages/reports" ]; then
+            cp -r existing-pages/reports/* site/reports/
+          fi
+
       - name: Run Pytest
         run: pytest -v -s --alluredir=allure-results || true
 
@@ -67,11 +82,10 @@ jobs:
 
       - name: Generate Reports Index Page
         run: |
-          mkdir -p site/reports
           echo "<html><body><h1>All Test Reports</h1><ul>" > site/reports/index.html
           for dir in site/reports/*/ ; do
             ts=$(basename "$dir")
-            if [[ "$ts" != "latest" && "$ts" != "index.html" ]]; then
+            if [[ "$ts" != "latest" ]]; then
               echo "<li><a href=\"./$ts/\">Report $ts</a></li>" >> site/reports/index.html
             fi
           done

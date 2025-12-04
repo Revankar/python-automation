@@ -7,3 +7,6 @@ class TestAmazon(NewAccountPage):
     def test_login_validcredential(self):
         self.login_validcredential(email="Admin",password='admin123')
 
+    def test_login_checkalert(self):
+        self.login_validcredential(email="Admin", password='admin123')
+

@@ -22,3 +22,14 @@ class NewAccountPage(Base):
         self.sendText(Amazon.password_field, password)
         self.click(Amazon.sign_in_btn)
         self.log.info(f"signed in successfully.")
+
+    def login_checkalert(self,email,password):
+        time.sleep(5)
+        self.sendText(Amazon.email_field, email)
+        time.sleep(5)
+        self.sendText(Amazon.password_field, password)
+        self.click(Amazon.sign_in_btn)
+        try:
+            self.driver.switch_to.alert.accept()
+        except:
+            self.log.info(f"No alerts.")

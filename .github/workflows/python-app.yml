@@ -56,19 +56,33 @@ jobs:
 
       - name: Generate Allure Report
         run: |
-            mkdir -p site/reports/${{ steps.ts.outputs.TS }}/
-            allure generate allure-results \
-              -o site/reports/${{ steps.ts.outputs.TS }}/ --clean
+          mkdir -p site/reports/${{ steps.ts.outputs.TS }}/
+          allure generate allure-results \
+            -o site/reports/${{ steps.ts.outputs.TS }}/ --clean
 
       - name: Copy latest report
         run: |
+          mkdir -p site
           rm -rf site/latest
           cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
+          
+      - name: Generate Reports Index Page
+        run: |
+          echo "<html><body><h1>All Test Reports</h1><ul>" > site/reports/index.html
+          for dir in site/reports/*/ ; do
+            ts=$(basename "$dir")
+            if [[ "$ts" != "latest" && "$ts" != "index.html" ]]; then
+              echo "<li><a href=\"./$ts/\">Report $ts</a></li>" >> site/reports/index.html
+            fi
+          done
+          echo "</ul></body></html>" >> site/reports/index.html
+
+
 
       - name: Upload GitHub Pages Artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: site
+          path: ./site
 
   deploy:
     needs: test

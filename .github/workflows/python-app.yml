@@ -1,8 +1,8 @@
 name: Python Test Automation with Allure Report
 
-# Manual trigger only
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * *"  # Runs daily at 9:00 UTC
 
 permissions:
   contents: write

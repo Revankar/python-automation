@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload report to GitHub Pages artifact
         if: always()
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
         with:
           name: github-pages    # REQUIRED for deploy-pages
           path: allure-report-${{ steps.vars.outputs.timestamp }}

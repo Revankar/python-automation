@@ -51,12 +51,13 @@ jobs:
 
       - name: Upload report to GitHub Pages artifact
         if: always()
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v2
         with:
+          name: github-pages    # REQUIRED for deploy-pages
           path: allure-report-${{ steps.vars.outputs.timestamp }}
 
   deploy:
-    if: always()     # <<< FIX — Deploy even if test job failed
+    if: always()     # Deploy even if tests failed
     needs: test
     runs-on: ubuntu-latest
     environment:

@@ -1,8 +1,12 @@
-name: Python Test Automation with Allure Report.
+name: Python Test Automation with Allure Report
 
 on:
+  push:
+    branches:
+      - pytest-automation      # <<< Run workflow on every push to this branch
   schedule:
-    - cron: "0 9 * * *"  # Runs daily at 9:00 UTC
+    - cron: "0 9 * * *"      # Runs daily at 9:00 UTC
+  workflow_dispatch:          # Optional manual run
 
 permissions:
   contents: write
@@ -17,8 +21,8 @@ jobs:
       - name: Checkout latest code from branch
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0       # Fetch full history
-          ref: pytest-automation # Always checkout latest commit on this branch
+          fetch-depth: 0
+          ref: pytest-automation
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -45,7 +49,6 @@ jobs:
 
       - name: Run Pytest
         run: pytest -v -s --alluredir=allure-results || true
-        # || true ensures workflow continues even if tests fail or are skipped
 
       - name: Generate Allure Report
         run: allure generate allure-results -o site --clean
@@ -59,7 +62,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     environment:
-      name: github-pages # Make sure environment is protected for test-automation branch
+      name: github-pages
 
     steps:
       - name: Deploy Allure Report to GitHub Pages
@@ -70,4 +73,3 @@ jobs:
         run: |
           echo "✅ Your Allure Report URL:"
           echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
-

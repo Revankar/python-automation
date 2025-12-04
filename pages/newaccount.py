@@ -12,7 +12,5 @@ class NewAccountPage(Base):
         time.sleep(5)
         self.sendText(Amazon.password_field,password)
         self.click(Amazon.sign_in_btn)
-        # time.sleep(5)
-        # account_text = self.getText(Amazon.accountTxt)
-        # self.log.info(f"captch page displayed successfully. Account element found:{account_text}")
+        self.log.info(f"signed in successfully.")
 

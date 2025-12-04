@@ -6,7 +6,7 @@ on:
       - pytest-automation
   workflow_dispatch:
   schedule:
-    - cron: "40 14 * * *"
+    - cron: "40 14 * * *"   # 8:10 PM IST
 
 permissions:
   contents: write
@@ -16,9 +16,10 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -26,35 +27,33 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install allure-pytest
 
-      - name: Generate timestamp
+      - name: Create timestamp
         id: vars
         run: echo "timestamp=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
       - name: Run tests
         continue-on-error: true
         run: |
-          mkdir -p allure-results-${{ steps.vars.outputs.timestamp }}
           pytest --alluredir=allure-results-${{ steps.vars.outputs.timestamp }}
 
-      - name: Generate Allure Report
+      - name: Generate Allure report
         if: always()
         run: |
-          pip install allure-pytest
-          mkdir -p allure-report-${{ steps.vars.outputs.timestamp }}
           allure generate allure-results-${{ steps.vars.outputs.timestamp }} \
-            -o allure-report-${{ steps.vars.outputs.timestamp }} --clean || true
+            -o allure-report-${{ steps.vars.outputs.timestamp }} --clean
 
-      - name: Debug – List Allure report folder
+      - name: Debug
         if: always()
         run: ls -R .
 
-      - name: Upload report to GitHub Pages artifact
+      - name: Upload Pages artifact
         if: always()
         uses: actions/upload-pages-artifact@v3
         with:
-          name: github-pages
           path: allure-report-${{ steps.vars.outputs.timestamp }}
 
   deploy:

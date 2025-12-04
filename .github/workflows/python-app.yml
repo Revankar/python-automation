@@ -1,10 +1,8 @@
 name: Python Test Automation with Allure Report
 
 on:
-  workflow_dispatch:        # Manual trigger
-  push:
-    branches:
-      - pytest-automation     # Automatically run on push to this branch
+  schedule:
+    - cron: "57 18 * * *"  # Runs daily at 9:00 AM IST (3:30 AM UTC)
 
 permissions:
   contents: write

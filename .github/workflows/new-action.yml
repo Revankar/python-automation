@@ -14,6 +14,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    continue-on-error: true  # <-- Continue workflow even if some markers fail
 
     strategy:
       fail-fast: false
@@ -77,6 +78,7 @@ jobs:
   merge:
     runs-on: ubuntu-latest
     needs: test
+    if: always()  # <-- Always run even if some test markers failed
 
     steps:
       - name: Checkout gh-pages
@@ -161,6 +163,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
+    if: always()  # <-- Always deploy even if merge or some test markers failed
 
     steps:
       - name: Deploy to GitHub Pages

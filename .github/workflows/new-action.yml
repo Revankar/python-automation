@@ -48,7 +48,7 @@ jobs:
           unzip allure-2.29.0.zip -d /opt/allure
           sudo ln -s /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
 
-      - name: "Run pytest for marker: ${{ matrix.marker }}"
+      - name: Run pytest for marker ${{ matrix.marker }}
         run: |
           echo "Running tests for marker: ${{ matrix.marker }}"
           pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }}
@@ -106,16 +106,11 @@ jobs:
         with:
           path: merged-results
 
-      - name: Debug merged-results
-        run: |
-          echo "Contents of merged-results:"
-          ls -R merged-results
-
       - name: Merge allure results
         run: |
           mkdir -p allure-results
           find merged-results -type d -name "allure-results-*" -exec cp -r {}/* allure-results/ \;
-          echo "Contents of merged allure-results after merge:"
+          echo "Contents of merged allure-results:"
           ls -R allure-results
           echo "Allure JSON files after merge:"
           find allure-results -name "*.json"

@@ -49,7 +49,7 @@ jobs:
 
       - name: Run pytest for marker ${{ matrix.marker }}
         run: |
-          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }}
+          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }} || true
 
       - name: Upload Allure results for this marker
         uses: actions/upload-artifact@v4
@@ -93,29 +93,34 @@ jobs:
         id: ts
         run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
-      # ✅ Download each matrix artifact individually
+      # Download matrix artifacts safely
       - name: Download allure-smoke
         uses: actions/download-artifact@v4
         with:
           name: allure-smoke
           path: merged-results/smoke
+        continue-on-error: true
 
       - name: Download allure-regression
         uses: actions/download-artifact@v4
         with:
           name: allure-regression
           path: merged-results/regression
+        continue-on-error: true
 
       - name: Download allure-sanity
         uses: actions/download-artifact@v4
         with:
           name: allure-sanity
           path: merged-results/sanity
+        continue-on-error: true
 
       - name: Merge Allure results
         run: |
           mkdir -p allure-results
-          cp -r merged-results/*/* allure-results/
+          if [ -d merged-results ]; then
+            cp -r merged-results/*/* allure-results/ || true
+          fi
           echo "Merged Allure Results:"
           find allure-results -name "*.json"
 

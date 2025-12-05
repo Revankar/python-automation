@@ -11,7 +11,7 @@ class TestAmazon(NewAccountPage):
     def test_login_validcredential(self):
         self.login_validcredential(email="Admin",password='admin123')
 
-    @pytest.mark.regression
+    @pytest.mark.a
     def test_login_validcredential1(self):
         self.login_validcredential1(email="Admin",password='admin123')
 

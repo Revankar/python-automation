@@ -46,7 +46,7 @@ jobs:
           unzip allure-2.29.0.zip -d /opt/allure
           sudo ln -s /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
 
-      - name: Run pytest for marker: ${{ matrix.marker }}
+      - name: "Run pytest for marker: ${{ matrix.marker }}"
         run: |
           pytest -v -s -m "${{ matrix.marker }}" \
             --alluredir=allure-results-${{ matrix.marker }} || true

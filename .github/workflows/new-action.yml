@@ -1,9 +1,7 @@
 name: Python Test Automation with Allure Report
 
 on:
-  push:
-    branches:
-      - pytest-automation
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -143,6 +141,6 @@ jobs:
       - name: Print Report URLs
         run: |
           echo "Latest Report:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
+          echo "https://${{ github.actor }}.github.io/${{ github.event.repository.name }}/latest/"
           echo "All Reports:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"
+          echo "https://${{ github.actor }}.github.io/${{ github.event.repository.name }}/reports/"

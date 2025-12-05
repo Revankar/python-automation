@@ -1,0 +1,175 @@
+name: Python Test Automation with Allure Report
+
+on:
+  push:
+    branches:
+      - pytest-automation
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    continue-on-error: true     # Continue workflow even if some markers fail
+
+    strategy:
+      fail-fast: false
+      matrix:
+        marker: [smoke, regression, sanity]
+
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: pytest-automation
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Install ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: Install dependencies + Allure CLI
+        run: |
+          pip install -r requirements.txt
+          pip install allure-pytest
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
+          unzip allure-2.29.0.zip -d /opt/allure
+          sudo ln -s /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
+
+      - name: Run pytest for marker ${{ matrix.marker }}
+        run: |
+          echo "Running tests for marker: ${{ matrix.marker }}"
+          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }}
+
+      - name: Debug pytest allure-results
+        run: |
+          echo "Contents of allure-results-${{ matrix.marker }}:"
+          ls -R allure-results-${{ matrix.marker }}
+          echo "Allure JSON files:"
+          find allure-results-${{ matrix.marker }} -name "*.json"
+
+      - name: Upload allure results for this marker
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-${{ matrix.marker }}
+          path: allure-results-${{ matrix.marker }}
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()     # Always run even if tests failed
+
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: existing-pages
+        continue-on-error: true
+
+      - name: Checkout full repo
+        uses: actions/checkout@v4
+
+      - name: Install Allure CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
+          unzip allure-2.29.0.zip -d /opt/allure
+          sudo ln -s /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
+
+      - name: Generate timestamp
+        id: ts
+        run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+
+      - name: Download all marker artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: merged-results
+
+      - name: Merge allure results
+        run: |
+          mkdir -p allure-results
+          find merged-results -type d -name "allure-results-*" -exec cp -r {}/* allure-results/ \;
+          echo "Merged Allure Results:"
+          find allure-results -name "*.json"
+
+      - name: Check if any Allure JSON exists
+        id: check_json
+        run: |
+          count=$(find allure-results -name "*.json" | wc -l)
+          echo "JSON_COUNT=$count" >> $GITHUB_OUTPUT
+
+      - name: Create minimal site if no reports exist
+        if: steps.check_json.outputs.JSON_COUNT == '0'
+        run: |
+          mkdir -p site
+          echo "<html><body><h2>No reports generated</h2></body></html>" > site/index.html
+
+      - name: Prepare site directory
+        if: steps.check_json.outputs.JSON_COUNT != '0'
+        run: |
+          mkdir -p site/reports
+          if [ -d "existing-pages/reports" ]; then
+            cp -r existing-pages/reports/* site/reports/
+          fi
+
+      - name: Generate combined Allure report
+        if: steps.check_json.outputs.JSON_COUNT != '0'
+        run: |
+          mkdir -p site/reports/${{ steps.ts.outputs.TS }}
+          allure generate allure-results -o site/reports/${{ steps.ts.outputs.TS }} --clean
+
+      - name: Update latest report
+        if: steps.check_json.outputs.JSON_COUNT != '0'
+        run: |
+          rm -rf site/latest
+          cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
+
+      - name: Generate index page
+        if: steps.check_json.outputs.JSON_COUNT != '0'
+        run: |
+          echo "<html><body><h1>All Reports</h1><ul>" > site/reports/index.html
+          for dir in site/reports/*/ ; do
+            ts=$(basename "$dir")
+            if [[ "$ts" != "latest" ]]; then
+              echo "<li><a href=\"./$ts/\">Report $ts</a></li>" >> site/reports/index.html
+            fi
+          done
+          echo "</ul></body></html>" >> site/reports/index.html
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./site
+
+  deploy:
+    needs: merge
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    if: always()
+
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+
+      - name: Print Report URLs
+        run: |
+          echo "Latest Report:"
+          echo "https://${{ github.actor }}.github.io/${{ github.event.repository.name }}/latest/"
+          echo "All Reports:"
+          echo "https://${{ github.actor }}.github.io/${{ github.event.repository.name }}/reports/"

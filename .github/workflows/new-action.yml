@@ -1,7 +1,9 @@
 name: Python Test Automation with Allure Report
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - pytest-automation
 
 permissions:
   contents: write

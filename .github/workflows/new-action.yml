@@ -1,7 +1,9 @@
-name: Python Test Automation with Allure Report.
+name: Python Test Automation with Allure Report
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - pytest-automation
 
 permissions:
   contents: write
@@ -16,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        marker: [p1, p2, p3]   # Parallel markers
+        marker: [smoke, regression, sanity]   # Parallel markers
 
     steps:
       - name: Checkout test branch

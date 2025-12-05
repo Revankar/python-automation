@@ -3,15 +3,15 @@ from pages.newaccount import NewAccountPage
 
 class TestAmazon(NewAccountPage):
 
-    @pytest.mark.p1
+    @pytest.mark.smoke
     def test_login_invalidcredential(self):
         self.login_invalidcredential(email="vidyarevankar22@gmail.com",password='dont know')
 
-    @pytest.mark.p2
+    @pytest.mark.regression
     def test_login_validcredential(self):
         self.login_validcredential(email="Admin",password='admin123')
 
-    @pytest.mark.p3
+    @pytest.mark.sanity
     def test_login_checkalert(self):
         self.login_validcredential(email="Admin", password='admin123')
 

@@ -151,6 +151,16 @@ jobs:
           done
           echo "</ul></body></html>" >> site/reports/index.html
 
+      - name: Create root index.html
+        run: |
+          echo "<html><body>
+          <h1>Allure Reports</h1>
+          <ul>
+            <li><a href='./latest/'>Latest Report</a></li>
+            <li><a href='./reports/'>All Reports</a></li>
+          </ul>
+          </body></html>" > site/index.html
+
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v4
         with:

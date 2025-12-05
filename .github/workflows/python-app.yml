@@ -77,7 +77,18 @@ jobs:
         with:
           ref: gh-pages
           path: existing-pages
+          fetch-depth: 0
         continue-on-error: true
+
+      - name: Ensure gh-pages branch exists
+        run: |
+          cd existing-pages || exit
+          if ! git show-ref --verify --quiet refs/heads/gh-pages; then
+            echo "gh-pages branch does not exist. Creating it..."
+            git checkout --orphan gh-pages
+            git commit --allow-empty -m "Initial gh-pages commit"
+            git push origin gh-pages
+          fi
 
       - name: Checkout full repo
         uses: actions/checkout@v4

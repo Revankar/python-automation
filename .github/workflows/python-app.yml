@@ -93,17 +93,29 @@ jobs:
         id: ts
         run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
-      - name: Download all matrix artifacts
+      # ✅ Download each matrix artifact individually
+      - name: Download allure-smoke
         uses: actions/download-artifact@v4
         with:
-          name: allure-*
-          path: merged-results
+          name: allure-smoke
+          path: merged-results/smoke
+
+      - name: Download allure-regression
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-regression
+          path: merged-results/regression
+
+      - name: Download allure-sanity
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-sanity
+          path: merged-results/sanity
 
       - name: Merge Allure results
         run: |
           mkdir -p allure-results
-          # Copy all JSON results from all matrix jobs
-          find merged-results -type d -name "allure-results-*" -exec cp -r {}/* allure-results/ \;
+          cp -r merged-results/*/* allure-results/
           echo "Merged Allure Results:"
           find allure-results -name "*.json"
 

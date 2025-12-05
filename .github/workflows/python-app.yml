@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - pytest-automation
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -11,10 +12,8 @@ permissions:
   id-token: write
 
 jobs:
-
   test:
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
@@ -44,7 +43,7 @@ jobs:
           pip install allure-pytest
           sudo apt-get update
           sudo apt-get install -y unzip wget
-          wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
+          wget -q https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
           unzip -o allure-2.29.0.zip -d /opt/allure
           sudo ln -sf /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
 
@@ -72,13 +71,19 @@ jobs:
     if: always()
 
     steps:
-      - name: Checkout gh-pages
+      - name: Checkout gh-pages (if exists)
         uses: actions/checkout@v4
         with:
           ref: gh-pages
           path: existing-pages
           fetch-depth: 0
         continue-on-error: true
+
+      - name: Set Git identity
+        run: |
+          cd existing-pages || exit
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
 
       - name: Ensure gh-pages branch exists
         run: |
@@ -92,14 +97,6 @@ jobs:
 
       - name: Checkout full repo
         uses: actions/checkout@v4
-
-      - name: Install Allure CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip wget
-          wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
-          unzip -o allure-2.29.0.zip -d /opt/allure
-          sudo ln -sf /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
 
       - name: Generate timestamp
         id: ts
@@ -130,23 +127,11 @@ jobs:
         if: steps.check_json.outputs.JSON_COUNT == '0'
         run: echo "<html><body><h2>No reports generated</h2></body></html>" > site/index.html
 
-      - name: Prepare site reports
-        if: steps.check_json.outputs.JSON_COUNT != '0'
-        run: |
-          mkdir -p site/reports
-          if [ -d "existing-pages/reports" ]; then
-            cp -r existing-pages/reports/* site/reports/
-          fi
-
       - name: Generate combined Allure report
         if: steps.check_json.outputs.JSON_COUNT != '0'
         run: |
           mkdir -p site/reports/${{ steps.ts.outputs.TS }}
           allure generate allure-results -o site/reports/${{ steps.ts.outputs.TS }} --clean
-
-      - name: Update latest report
-        if: steps.check_json.outputs.JSON_COUNT != '0'
-        run: |
           rm -rf site/latest
           cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
 

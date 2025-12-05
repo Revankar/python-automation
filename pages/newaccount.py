@@ -6,6 +6,8 @@ from locators.amazon import Amazon
 
 class NewAccountPage(Base):
     log = Base.getLogger()
+
+
     def login_invalidcredential(self,email, password):
         time.sleep(5)
         self.sendText(Amazon.email_field,email)

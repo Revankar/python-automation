@@ -1,11 +1,6 @@
 name: Python Test Automation with Allure Report
 
 on:
-  push:
-    branches:
-      - pytest-automation
-  schedule:
-    - cron: "0 9 * * *"
   workflow_dispatch:
 
 permissions:

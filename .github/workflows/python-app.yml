@@ -2,7 +2,7 @@ name: Python Test Automation with Allure Report
 
 on:
   workflow_dispatch:
-
+  
 permissions:
   contents: write
   pages: write

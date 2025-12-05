@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - pytest-automation
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,9 +14,13 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        marker: [smoke, regression, sanity]
 
     steps:
-      - name: Checkout latest code from branch
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -34,52 +39,99 @@ jobs:
 
       - name: Install dependencies + Allure CLI
         run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install allure-pytest
- 
           sudo apt-get update
-          sudo apt-get install -y unzip
-          wget https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
-          unzip allure-2.29.0.zip -d /opt/allure
-          sudo ln -s /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
+          sudo apt-get install -y unzip wget
+          wget -q https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
+          unzip -o allure-2.29.0.zip -d /opt/allure
+          sudo ln -sf /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
 
-      - name: Generate Timestamp
-        id: ts
-        run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+      - name: Run pytest for marker ${{ matrix.marker }}
+        run: |
+          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }}
 
-      # ➤ IMPORTANT: Load previous reports from gh-pages
-      - name: Download existing GitHub Pages content
+      - name: Upload Allure results for this marker
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-${{ matrix.marker }}
+          path: allure-results-${{ matrix.marker }}
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+
+    steps:
+      - name: Checkout gh-pages (if exists)
         uses: actions/checkout@v4
         with:
           ref: gh-pages
           path: existing-pages
+          fetch-depth: 0
         continue-on-error: true
 
-      - name: Prepare site folder with previous reports
+      - name: Set Git identity
         run: |
-          mkdir -p site/reports
-          if [ -d "existing-pages/reports" ]; then
-            cp -r existing-pages/reports/* site/reports/
+          cd existing-pages || exit
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Ensure gh-pages branch exists
+        run: |
+          cd existing-pages || exit
+          if ! git show-ref --verify --quiet refs/heads/gh-pages; then
+            git checkout --orphan gh-pages
+            git commit --allow-empty -m "Initial gh-pages commit"
+            git push origin gh-pages
           fi
 
-      - name: Run Pytest
-        run: pytest -v -s --alluredir=allure-results || true
+      - name: Checkout full repo
+        uses: actions/checkout@v4
 
-      - name: Generate Allure Report
-        run: |
-          mkdir -p site/reports/${{ steps.ts.outputs.TS }}/
-          allure generate allure-results \
-            -o site/reports/${{ steps.ts.outputs.TS }}/ --clean
+      - name: Generate timestamp
+        id: ts
+        run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
-      - name: Copy latest report
+      - name: Download all matrix artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-*
+          path: merged-results
+
+      - name: Merge Allure results
         run: |
+          mkdir -p allure-results
+          # Copy all JSON results from all matrix jobs
+          find merged-results -type d -name "allure-results-*" -exec cp -r {}/* allure-results/ \;
+          echo "Merged Allure Results:"
+          find allure-results -name "*.json"
+
+      - name: Check if any Allure JSON exists
+        id: check_json
+        run: |
+          count=$(find allure-results -name "*.json" | wc -l)
+          echo "JSON_COUNT=$count" >> $GITHUB_OUTPUT
+
+      - name: Prepare site folder
+        run: mkdir -p site
+
+      - name: Create minimal site if no reports
+        if: steps.check_json.outputs.JSON_COUNT == '0'
+        run: echo "<html><body><h2>No reports generated</h2></body></html>" > site/index.html
+
+      - name: Generate Allure report
+        if: steps.check_json.outputs.JSON_COUNT != '0'
+        run: |
+          mkdir -p site/reports/${{ steps.ts.outputs.TS }}
+          allure generate allure-results -o site/reports/${{ steps.ts.outputs.TS }} --clean
           rm -rf site/latest
           cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
 
-      - name: Generate Reports Index Page
+      - name: Generate reports index
+        if: steps.check_json.outputs.JSON_COUNT != '0'
         run: |
-          echo "<html><body><h1>All Test Reports</h1><ul>" > site/reports/index.html
+          echo "<html><body><h1>All Reports</h1><ul>" > site/reports/index.html
           for dir in site/reports/*/ ; do
             ts=$(basename "$dir")
             if [[ "$ts" != "latest" ]]; then
@@ -88,20 +140,29 @@ jobs:
           done
           echo "</ul></body></html>" >> site/reports/index.html
 
-      - name: Upload GitHub Pages Artifact
+      - name: Create root index.html
+        run: |
+          echo "<html><body>
+          <h1>Allure Reports</h1>
+          <ul>
+            <li><a href='./latest/'>Latest Report</a></li>
+            <li><a href='./reports/'>All Reports</a></li>
+          </ul>
+          </body></html>" > site/index.html
+
+      - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./site
 
   deploy:
-    needs: test
+    needs: merge
     runs-on: ubuntu-latest
     environment:
       name: github-pages
 
     steps:
-      - name: Deploy Allure Report to GitHub Pages
-        id: deploy
+      - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
 
       - name: Print Allure URL

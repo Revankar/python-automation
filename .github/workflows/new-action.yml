@@ -94,7 +94,7 @@ jobs:
       - name: Merge allure results
         run: |
           mkdir -p allure-results
-          cp -r merged-results/**/allure-results-*/* allure-results/
+          find merged-results -type d -name "allure-results-*" -exec cp -r {}/* allure-results/ \;
 
       - name: Prepare site directory
         run: |

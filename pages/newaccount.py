@@ -43,4 +43,4 @@ class NewAccountPage(Base):
         try:
             self.driver.switch_to.alert.accept()
         except:
-            self.log.info(f"No alerts.")
+            self.log.info(f"No alerts..")

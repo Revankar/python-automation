@@ -1,4 +1,4 @@
-name: Python Test Automation with Allure Report
+name: Python Selenium Test Automation with Allure
 
 on:
   push:
@@ -16,8 +16,8 @@ jobs:
     runs-on: [self-hosted, windows]
 
     env:
+      PATH: "C:\\Users\\Vidya Revankar\\AppData\\Local\\Programs\\Python\\Python312;%PATH%"
       NODE_TLS_REJECT_UNAUTHORIZED: 0
-      PATH: C:\Users\Vidya Revankar\AppData\Local\Programs\Python\Python312;%PATH%
 
     strategy:
       fail-fast: false
@@ -27,33 +27,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: pytest-automation
 
       - name: Verify Python
+        shell: cmd
         run: python --version
-        shell: pwsh
 
-      - name: Install Chrome
-        uses: browser-actions/setup-chrome@v1
-
-      - name: Install dependencies + Allure CLI
-        shell: pwsh
+      - name: Install dependencies
+        shell: cmd
         run: |
           pip install -r requirements.txt
-          pip install allure-pytest
-          Invoke-WebRequest -Uri 'https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip' -OutFile 'allure.zip'
-          Expand-Archive -Path 'allure.zip' -DestinationPath 'allure' -Force
-        env:
-          ALLURE_HOME: ${{ github.workspace }}\allure\allure-2.29.0
-          PATH: ${{ github.workspace }}\allure\allure-2.29.0\bin;%PATH%
+          pip install allure-pytest selenium webdriver-manager
 
       - name: Run pytest for marker ${{ matrix.marker }}
-        shell: pwsh
+        shell: cmd
         run: pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker}} || exit 0
 
-      - name: Upload Allure results for this marker
+      - name: Upload Allure results
         uses: actions/upload-artifact@v4
         with:
           name: allure-${{ matrix.marker }}
@@ -74,106 +63,109 @@ jobs:
         continue-on-error: true
 
       - name: Set Git identity
-        shell: pwsh
+        shell: cmd
         run: |
           cd existing-pages
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
       - name: Ensure gh-pages branch exists
-        shell: pwsh
+        shell: cmd
         run: |
           cd existing-pages
-          if (-not (git show-ref --verify --quiet refs/heads/gh-pages)) {
+          git show-ref --verify --quiet refs/heads/gh-pages || (
             git checkout --orphan gh-pages
             git commit --allow-empty -m "Initial gh-pages commit"
             git push origin gh-pages
-          }
+          )
 
       - name: Checkout full repo
         uses: actions/checkout@v4
 
       - name: Generate timestamp
         id: ts
-        shell: pwsh
-        run: echo "TS=$(Get-Date -Format yyyyMMddHHmmss)" >> $GITHUB_OUTPUT
+        shell: cmd
+        run: echo TS=%DATE:~10,4%%DATE:~4,2%%DATE:~7,2%%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%>>%GITHUB_ENV
 
       - name: Download matrix artifacts
         uses: actions/download-artifact@v4
         with:
           name: allure-smoke
-          path: merged-results/smoke
+          path: merged-results\smoke
         continue-on-error: true
 
       - name: Download allure-regression
         uses: actions/download-artifact@v4
         with:
           name: allure-regression
-          path: merged-results/regression
+          path: merged-results\regression
         continue-on-error: true
 
       - name: Download allure-sanity
         uses: actions/download-artifact@v4
         with:
           name: allure-sanity
-          path: merged-results/sanity
+          path: merged-results\sanity
         continue-on-error: true
 
       - name: Merge Allure results
-        shell: pwsh
+        shell: cmd
         run: |
           mkdir allure-results
-          if (Test-Path merged-results) {
-            Copy-Item merged-results\*\* allure-results -Recurse -Force
-          }
-          Write-Host "Merged Allure Results:"
-          Get-ChildItem -Path allure-results -Recurse -Filter *.json
+          if exist merged-results (
+            xcopy merged-results\* allure-results /s /e /y
+          )
+          echo Merged Allure Results:
+          dir allure-results /s /b
 
       - name: Check if any Allure JSON exists
         id: check_json
-        shell: pwsh
+        shell: cmd
         run: |
-          $count = (Get-ChildItem -Path allure-results -Recurse -Filter *.json).Count
-          echo "JSON_COUNT=$count" >> $GITHUB_OUTPUT
+          set count=0
+          for /r allure-results %%f in (*.json) do set /a count+=1
+          echo JSON_COUNT=%count% >> %GITHUB_ENV
 
       - name: Prepare site folder
-        shell: pwsh
+        shell: cmd
         run: mkdir site
 
       - name: Create minimal site if no reports
-        if: steps.check_json.outputs.JSON_COUNT == '0'
-        shell: pwsh
-        run: echo "<html><body><h2>No reports generated</h2></body></html>" > site\index.html
+        if: env.JSON_COUNT == '0'
+        shell: cmd
+        run: echo ^<html^>^<body^>^<h2^>No reports generated^</h2^>^</body^>^</html^> > site\index.html
+
+      - name: Install Allure CLI
+        shell: cmd
+        run: |
+          powershell -Command "Invoke-WebRequest -Uri 'https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip' -OutFile 'allure.zip'"
+          powershell -Command "Expand-Archive -Path 'allure.zip' -DestinationPath 'allure' -Force"
+          setx ALLURE_HOME "%CD%\allure\allure-2.29.0"
+          setx PATH "%PATH%;%ALLURE_HOME%\bin"
 
       - name: Generate Allure report
-        if: steps.check_json.outputs.JSON_COUNT != '0'
-        shell: pwsh
+        if: env.JSON_COUNT != '0'
+        shell: cmd
         run: |
-          mkdir site\reports\${{ steps.ts.outputs.TS }}
-          allure generate allure-results -o site\reports\${{ steps.ts.outputs.TS }} --clean
-          Remove-Item -Recurse -Force site\latest
-          Copy-Item -Recurse site\reports\${{ steps.ts.outputs.TS }} site\latest
+          mkdir site\reports\%TS%
+          allure generate allure-results -o site\reports\%TS% --clean
+          rmdir /s /q site\latest
+          xcopy site\reports\%TS% site\latest /s /e /y
 
       - name: Generate reports index
-        if: steps.check_json.outputs.JSON_COUNT != '0'
-        shell: pwsh
+        if: env.JSON_COUNT != '0'
+        shell: cmd
         run: |
-          "<html><body><h1>All Reports</h1><ul>" > site\reports\index.html
-          Get-ChildItem site\reports | Where-Object {$_.PSIsContainer -and $_.Name -ne 'latest'} | ForEach-Object {
-            "<li><a href='./$($_.Name)/'>Report $($_.Name)</a></li>" >> site\reports\index.html
-          }
-          "</ul></body></html>" >> site\reports\index.html
+          echo ^<html^>^<body^>^<h1^>All Reports^</h1^>^<ul^> > site\reports\index.html
+          for /d %%d in (site\reports\*) do (
+            if not "%%~nxd"=="latest" echo ^<li^>^<a href='%%~nxd/'^>Report %%~nxd^</a^>^</li^> >> site\reports\index.html
+          )
+          echo ^</ul^>^</body^>^</html^> >> site\reports\index.html
 
       - name: Create root index.html
-        shell: pwsh
+        shell: cmd
         run: |
-          "<html><body>
-          <h1>Allure Reports</h1>
-          <ul>
-            <li><a href='./latest/'>Latest Report</a></li>
-            <li><a href='./reports/'>All Reports</a></li>
-          </ul>
-          </body></html>" > site\index.html
+          echo ^<html^>^<body^>^<h1^>Allure Reports^</h1^>^<ul^>^<li^>^<a href='./latest/'^>Latest Report^</a^>^</li^>^<li^>^<a href='./reports/'^>All Reports^</a^>^</li^>^</ul^>^</body^>^</html^> > site\index.html
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v4
@@ -191,9 +183,9 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Print Allure URL
-        shell: pwsh
+        shell: cmd
         run: |
-          Write-Host "Latest Report:"
-          Write-Host "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
-          Write-Host "All Reports:"
-          Write-Host "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"
+          echo Latest Report:
+          echo https://%GITHUB_REPOSITORY_OWNER%.github.io/%GITHUB_REPOSITORY%/latest/
+          echo All Reports:
+          echo https://%GITHUB_REPOSITORY_OWNER%.github.io/%GITHUB_REPOSITORY%/reports/

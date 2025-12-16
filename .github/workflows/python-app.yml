@@ -31,31 +31,31 @@ jobs:
           fetch-depth: 0
           ref: pytest-automation
 
-      # ✅ Skip setup-python if Python is installed on runner
       - name: Verify Python
         run: python --version
 
-      - name: Install Chrome (Windows)
+      - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
 
       - name: Install dependencies + Allure CLI
+        shell: powershell
         run: |
           pip install -r requirements.txt
           pip install allure-pytest
-          powershell -Command "Invoke-WebRequest -Uri 'https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip' -OutFile 'allure.zip'"
-          powershell -Command "Expand-Archive -Path 'allure.zip' -DestinationPath 'allure' -Force"
-          setx ALLURE_HOME "%CD%\allure\allure-2.29.0"
-          setx PATH "%PATH%;%ALLURE_HOME%\bin"
+          Invoke-WebRequest -Uri 'https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip' -OutFile 'allure.zip'
+          Expand-Archive -Path 'allure.zip' -DestinationPath 'allure' -Force
+        env:
+          ALLURE_HOME: ${{ github.workspace }}\allure\allure-2.29.0
+          PATH: ${{ github.workspace }}\allure\allure-2.29.0\bin;%PATH%
 
       - name: Run pytest for marker ${{ matrix.marker }}
-        run: |
-          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker}} || exit 0
+        run: pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker}} || exit 0
 
       - name: Upload Allure results for this marker
         uses: actions/upload-artifact@v4
         with:
           name: allure-${{ matrix.marker }}
-          path: allure-results-${{ matrix.marker }}
+          path: allure-results-${{ matrix.marker}}
 
   merge:
     runs-on: [self-hosted, windows]
@@ -72,29 +72,31 @@ jobs:
         continue-on-error: true
 
       - name: Set Git identity
+        shell: powershell
         run: |
-          cd existing-pages || exit
+          cd existing-pages
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
       - name: Ensure gh-pages branch exists
+        shell: powershell
         run: |
-          cd existing-pages || exit
-          if ! git show-ref --verify --quiet refs/heads/gh-pages; then
+          cd existing-pages
+          if (-not (git show-ref --verify --quiet refs/heads/gh-pages)) {
             git checkout --orphan gh-pages
             git commit --allow-empty -m "Initial gh-pages commit"
             git push origin gh-pages
-          fi
+          }
 
       - name: Checkout full repo
         uses: actions/checkout@v4
 
       - name: Generate timestamp
         id: ts
+        shell: powershell
         run: echo "TS=$(Get-Date -Format yyyyMMddHHmmss)" >> $GITHUB_OUTPUT
 
-      # Download matrix artifacts safely
-      - name: Download allure-smoke
+      - name: Download matrix artifacts
         uses: actions/download-artifact@v4
         with:
           name: allure-smoke
@@ -116,6 +118,7 @@ jobs:
         continue-on-error: true
 
       - name: Merge Allure results
+        shell: powershell
         run: |
           mkdir allure-results
           if (Test-Path merged-results) {
@@ -126,27 +129,32 @@ jobs:
 
       - name: Check if any Allure JSON exists
         id: check_json
+        shell: powershell
         run: |
           $count = (Get-ChildItem -Path allure-results -Recurse -Filter *.json).Count
           echo "JSON_COUNT=$count" >> $GITHUB_OUTPUT
 
       - name: Prepare site folder
+        shell: powershell
         run: mkdir site
 
       - name: Create minimal site if no reports
         if: steps.check_json.outputs.JSON_COUNT == '0'
+        shell: powershell
         run: echo "<html><body><h2>No reports generated</h2></body></html>" > site\index.html
 
       - name: Generate Allure report
         if: steps.check_json.outputs.JSON_COUNT != '0'
+        shell: powershell
         run: |
           mkdir site\reports\${{ steps.ts.outputs.TS }}
           allure generate allure-results -o site\reports\${{ steps.ts.outputs.TS }} --clean
           Remove-Item -Recurse -Force site\latest
-          Copy-Item -Recurse site\reports\${{ steps.ts.outputs.TS}} site\latest
+          Copy-Item -Recurse site\reports\${{ steps.ts.outputs.TS }} site\latest
 
       - name: Generate reports index
         if: steps.check_json.outputs.JSON_COUNT != '0'
+        shell: powershell
         run: |
           "<html><body><h1>All Reports</h1><ul>" > site\reports\index.html
           Get-ChildItem site\reports | Where-Object {$_.PSIsContainer -and $_.Name -ne 'latest'} | ForEach-Object {
@@ -155,6 +163,7 @@ jobs:
           "</ul></body></html>" >> site\reports\index.html
 
       - name: Create root index.html
+        shell: powershell
         run: |
           "<html><body>
           <h1>Allure Reports</h1>
@@ -180,6 +189,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Print Allure URL
+        shell: powershell
         run: |
           Write-Host "Latest Report:"
           Write-Host "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"

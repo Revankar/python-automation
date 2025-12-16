@@ -11,7 +11,7 @@ def setup(request):
     chrome_options = webdriver.ChromeOptions()
 
     # CI-friendly options
-    chrome_options.add_argument("--headless=new")          # Latest headless mode
+    # chrome_options.add_argument("--headless=new")          # Latest headless mode
     chrome_options.add_argument("--no-sandbox")            # Required in GitHub Actions
     chrome_options.add_argument("--disable-dev-shm-usage") # Avoid limited /dev/shm errors
     chrome_options.add_argument("--disable-gpu")           # Disable GPU
@@ -35,4 +35,4 @@ def setup(request):
 
     yield driver
 
-    driver.quit()
+    # driver.quit()

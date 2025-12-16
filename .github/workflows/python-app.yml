@@ -34,9 +34,6 @@ jobs:
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
 
-      - name: Install ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-
       - name: Install dependencies + Allure CLI
         run: |
           pip install -r requirements.txt

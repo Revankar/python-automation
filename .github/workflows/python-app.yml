@@ -38,6 +38,23 @@ jobs:
           pip install -r requirements.txt
           pip install allure-pytest selenium webdriver-manager
 
+      - name: Download and extract Allure CLI
+        shell: cmd
+        run: |
+          python - <<END
+          import urllib.request, zipfile, os
+          url = "https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip"
+          urllib.request.urlretrieve(url, "allure.zip")
+          with zipfile.ZipFile("allure.zip","r") as zip_ref:
+              zip_ref.extractall("allure")
+          END
+
+      - name: Set ALLURE_HOME
+        shell: cmd
+        run: |
+          set ALLURE_HOME=%CD%\allure\allure-2.29.0
+          set PATH=%ALLURE_HOME%\bin;%PATH%
+
       - name: Run pytest for marker ${{ matrix.marker }}
         shell: cmd
         run: pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker}} || exit 0
@@ -134,14 +151,6 @@ jobs:
         if: env.JSON_COUNT == '0'
         shell: cmd
         run: echo ^<html^>^<body^>^<h2^>No reports generated^</h2^>^</body^>^</html^> > site\index.html
-
-      - name: Install Allure CLI
-        shell: cmd
-        run: |
-          powershell -Command "Invoke-WebRequest -Uri 'https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip' -OutFile 'allure.zip'"
-          powershell -Command "Expand-Archive -Path 'allure.zip' -DestinationPath 'allure' -Force"
-          setx ALLURE_HOME "%CD%\allure\allure-2.29.0"
-          setx PATH "%PATH%;%ALLURE_HOME%\bin"
 
       - name: Generate Allure report
         if: env.JSON_COUNT != '0'

@@ -30,34 +30,25 @@ jobs:
           fetch-depth: 0
           ref: pytest-automation
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      # ✅ Skip setup-python if Python is installed on runner
+      - name: Verify Python
+        run: python --version
 
-      - name: Install Chrome
+      - name: Install Chrome (Windows)
         uses: browser-actions/setup-chrome@v1
 
       - name: Install dependencies + Allure CLI
         run: |
           pip install -r requirements.txt
           pip install allure-pytest
-          sudo apt-get update
-          sudo apt-get install -y unzip wget
-          wget -q https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
-          unzip -o allure-2.29.0.zip -d /opt/allure
-          sudo ln -sf /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
-
-      - name: Start Xvfb
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
-          Xvfb :99 -screen 0 1920x1080x24 &
-          echo "DISPLAY=:99" >> $GITHUB_ENV
+          powershell -Command "Invoke-WebRequest -Uri 'https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip' -OutFile 'allure.zip'"
+          powershell -Command "Expand-Archive -Path 'allure.zip' -DestinationPath 'allure' -Force"
+          setx ALLURE_HOME "%CD%\allure\allure-2.29.0"
+          setx PATH "%PATH%;%ALLURE_HOME%\bin"
 
       - name: Run pytest for marker ${{ matrix.marker }}
         run: |
-          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }} || true
+          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker}} || exit 0
 
       - name: Upload Allure results for this marker
         uses: actions/upload-artifact@v4
@@ -66,7 +57,7 @@ jobs:
           path: allure-results-${{ matrix.marker }}
 
   merge:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows]
     needs: test
     if: always()
 
@@ -99,7 +90,7 @@ jobs:
 
       - name: Generate timestamp
         id: ts
-        run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+        run: echo "TS=$(Get-Date -Format yyyyMMddHHmmss)" >> $GITHUB_OUTPUT
 
       # Download matrix artifacts safely
       - name: Download allure-smoke
@@ -125,71 +116,52 @@ jobs:
 
       - name: Merge Allure results
         run: |
-          mkdir -p allure-results
-          if [ -d merged-results ]; then
-            cp -r merged-results/*/* allure-results/ || true
-          fi
-          echo "Merged Allure Results:"
-          find allure-results -name "*.json"
+          mkdir allure-results
+          if (Test-Path merged-results) {
+            Copy-Item merged-results\*\* allure-results -Recurse -Force
+          }
+          Write-Host "Merged Allure Results:"
+          Get-ChildItem -Path allure-results -Recurse -Filter *.json
 
       - name: Check if any Allure JSON exists
         id: check_json
         run: |
-          count=$(find allure-results -name "*.json" | wc -l)
+          $count = (Get-ChildItem -Path allure-results -Recurse -Filter *.json).Count
           echo "JSON_COUNT=$count" >> $GITHUB_OUTPUT
 
       - name: Prepare site folder
-        run: mkdir -p site
+        run: mkdir site
 
       - name: Create minimal site if no reports
         if: steps.check_json.outputs.JSON_COUNT == '0'
-        run: echo "<html><body><h2>No reports generated</h2></body></html>" > site/index.html
-
-      - name: Install Allure CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip wget
-          wget -q https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
-          unzip -o allure-2.29.0.zip -d /opt/allure
-          sudo ln -sf /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
+        run: echo "<html><body><h2>No reports generated</h2></body></html>" > site\index.html
 
       - name: Generate Allure report
         if: steps.check_json.outputs.JSON_COUNT != '0'
         run: |
-          mkdir -p site/reports/${{ steps.ts.outputs.TS }}
-          allure generate allure-results -o site/reports/${{ steps.ts.outputs.TS }} --clean
-          rm -rf site/latest
-          cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
-
-      - name: Generate Allure report
-        if: steps.check_json.outputs.JSON_COUNT != '0'
-        run: |
-          mkdir -p site/reports/${{ steps.ts.outputs.TS }}
-          allure generate allure-results -o site/reports/${{ steps.ts.outputs.TS }} --clean
-          rm -rf site/latest
-          cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
+          mkdir site\reports\${{ steps.ts.outputs.TS }}
+          allure generate allure-results -o site\reports\${{ steps.ts.outputs.TS} } --clean
+          Remove-Item -Recurse -Force site\latest
+          Copy-Item -Recurse site\reports\${{ steps.ts.outputs.TS}} site\latest
 
       - name: Generate reports index
         if: steps.check_json.outputs.JSON_COUNT != '0'
         run: |
-          echo "<html><body><h1>All Reports</h1><ul>" > site/reports/index.html
-          for dir in site/reports/*/ ; do
-            ts=$(basename "$dir")
-            if [[ "$ts" != "latest" ]]; then
-              echo "<li><a href=\"./$ts/\">Report $ts</a></li>" >> site/reports/index.html
-            fi
-          done
-          echo "</ul></body></html>" >> site/reports/index.html
+          "<html><body><h1>All Reports</h1><ul>" > site\reports\index.html
+          Get-ChildItem site\reports | Where-Object {$_.PSIsContainer -and $_.Name -ne 'latest'} | ForEach-Object {
+            "<li><a href='./$($_.Name)/'>Report $($_.Name)</a></li>" >> site\reports\index.html
+          }
+          "</ul></body></html>" >> site\reports\index.html
 
       - name: Create root index.html
         run: |
-          echo "<html><body>
+          "<html><body>
           <h1>Allure Reports</h1>
           <ul>
             <li><a href='./latest/'>Latest Report</a></li>
             <li><a href='./reports/'>All Reports</a></li>
           </ul>
-          </body></html>" > site/index.html
+          </body></html>" > site\index.html
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v4
@@ -198,7 +170,7 @@ jobs:
 
   deploy:
     needs: merge
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows]
     environment:
       name: github-pages
 
@@ -208,7 +180,7 @@ jobs:
 
       - name: Print Allure URL
         run: |
-          echo "Latest Report:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
-          echo "All Reports:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"
+          Write-Host "Latest Report:"
+          Write-Host "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
+          Write-Host "All Reports:"
+          Write-Host "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"

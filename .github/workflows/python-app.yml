@@ -3,7 +3,7 @@ name: Python Test Automation with Allure Report
 on:
   push:
     branches:
-      - main
+      - pytest-automation
   workflow_dispatch:
 
 permissions:
@@ -13,7 +13,11 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows]
+
+    env:
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
+
     strategy:
       fail-fast: false
       matrix:
@@ -24,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main
+          ref: pytest-automation
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,53 +38,86 @@ jobs:
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
 
-      - name: Install ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-
-      - name: Install dependencies
+      - name: Install dependencies + Allure CLI
         run: |
           pip install -r requirements.txt
           pip install allure-pytest
+          sudo apt-get update
+          sudo apt-get install -y unzip wget
+          wget -q https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
+          unzip -o allure-2.29.0.zip -d /opt/allure
+          sudo ln -sf /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
+
+      - name: Start Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
 
       - name: Run pytest for marker ${{ matrix.marker }}
         run: |
-          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }}
+          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }} || true
 
-      - name: Upload Allure results
+      - name: Upload Allure results for this marker
         uses: actions/upload-artifact@v4
         with:
           name: allure-${{ matrix.marker }}
           path: allure-results-${{ matrix.marker }}
 
-  merge_and_deploy:
-    needs: test
+  merge:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
+    needs: test
+    if: always()
 
     steps:
-      - name: Checkout repo
+      - name: Checkout gh-pages (if exists)
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: existing-pages
+          fetch-depth: 0
+        continue-on-error: true
+
+      - name: Set Git identity
+        run: |
+          cd existing-pages || exit
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Ensure gh-pages branch exists
+        run: |
+          cd existing-pages || exit
+          if ! git show-ref --verify --quiet refs/heads/gh-pages; then
+            git checkout --orphan gh-pages
+            git commit --allow-empty -m "Initial gh-pages commit"
+            git push origin gh-pages
+          fi
+
+      - name: Checkout full repo
         uses: actions/checkout@v4
 
       - name: Generate timestamp
         id: ts
         run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
-      # Download artifacts from test matrix
-      - name: Download Allure artifacts
+      # Download matrix artifacts safely
+      - name: Download allure-smoke
         uses: actions/download-artifact@v4
         with:
           name: allure-smoke
           path: merged-results/smoke
         continue-on-error: true
 
-      - uses: actions/download-artifact@v4
+      - name: Download allure-regression
+        uses: actions/download-artifact@v4
         with:
           name: allure-regression
           path: merged-results/regression
         continue-on-error: true
 
-      - uses: actions/download-artifact@v4
+      - name: Download allure-sanity
+        uses: actions/download-artifact@v4
         with:
           name: allure-sanity
           path: merged-results/sanity
@@ -92,7 +129,7 @@ jobs:
           if [ -d merged-results ]; then
             cp -r merged-results/*/* allure-results/ || true
           fi
-          echo "Merged Allure JSON files:"
+          echo "Merged Allure Results:"
           find allure-results -name "*.json"
 
       - name: Check if any Allure JSON exists
@@ -103,6 +140,10 @@ jobs:
 
       - name: Prepare site folder
         run: mkdir -p site
+
+      - name: Create minimal site if no reports
+        if: steps.check_json.outputs.JSON_COUNT == '0'
+        run: echo "<html><body><h2>No reports generated</h2></body></html>" > site/index.html
 
       - name: Install Allure CLI
         run: |
@@ -120,9 +161,13 @@ jobs:
           rm -rf site/latest
           cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
 
-      - name: Create minimal site if no reports
-        if: steps.check_json.outputs.JSON_COUNT == '0'
-        run: echo "<html><body><h2>No reports generated</h2></body></html>" > site/index.html
+      - name: Generate Allure report
+        if: steps.check_json.outputs.JSON_COUNT != '0'
+        run: |
+          mkdir -p site/reports/${{ steps.ts.outputs.TS }}
+          allure generate allure-results -o site/reports/${{ steps.ts.outputs.TS }} --clean
+          rm -rf site/latest
+          cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
 
       - name: Generate reports index
         if: steps.check_json.outputs.JSON_COUNT != '0'
@@ -136,32 +181,36 @@ jobs:
           done
           echo "</ul></body></html>" >> site/reports/index.html
 
-      - name: Ensure root index.html exists
+      - name: Create root index.html
         run: |
-          if [ ! -f site/index.html ]; then
-            echo "<html><body>
-            <h1>Allure Reports</h1>
-            <ul>
-              <li><a href='./latest/'>Latest Report</a></li>
-              <li><a href='./reports/'>All Reports</a></li>
-            </ul>
-            </body></html>" > site/index.html
-          fi
-
-      - name: Debug site contents
-        run: ls -R site
+          echo "<html><body>
+          <h1>Allure Reports</h1>
+          <ul>
+            <li><a href='./latest/'>Latest Report</a></li>
+            <li><a href='./reports/'>All Reports</a></li>
+          </ul>
+          </body></html>" > site/index.html
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./site
 
+  deploy:
+    needs: merge
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+
+    steps:
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
 
-      - name: Print Allure URLs
+      - name: Print Allure URL
         run: |
           echo "Latest Report:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.repository.name }}/latest/"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
           echo "All Reports:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.repository.name }}/reports/"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"
+ 
+

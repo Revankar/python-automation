@@ -27,7 +27,7 @@ class NewAccountPage(Base):
         self.click(Amazon.continuebtn)
         self.click(Amazon.finish)
         self.click(Amazon.backbtn)
-        self.log.info("Added to cart")
+        self.log.info("Added to cart...")
 
 
 

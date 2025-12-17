@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: [self-hosted, windows]
+    runs-on: ubuntu-latest
 
     env:
       NODE_TLS_REJECT_UNAUTHORIZED: 0

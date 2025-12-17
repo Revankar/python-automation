@@ -3,95 +3,165 @@ name: Python Test Automation with Allure Report
 on:
   push:
     branches:
-      - pytest-automation
+      - main
   workflow_dispatch:
 
 permissions:
   contents: write
   pages: write
+  id-token: write
 
 jobs:
   test:
-    runs-on: [self-hosted, windows]
-
-    env:
-      NODE_TLS_REJECT_UNAUTHORIZED: 0
-      PATH: C:\Users\Vidya Revankar\AppData\Local\Programs\Python\Python312;%PATH%
-
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        marker: [smoke, regression]
+        marker: [smoke, regression, sanity]
 
     steps:
-      - name: Verify Git is available
-        run: git --version
-        shell: cmd
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
 
-      - name: Clone repo
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Install ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: Install dependencies
         run: |
-          if exist repo rmdir /S /Q repo
-          git clone --branch pytest-automation https://github.com/${{ github.repository_owner }}/python-automation.git repo
-        shell: cmd
-
-      - name: Verify Python
-        run: python --version
-        shell: cmd
-
-      - name: Install dependencies + Allure CLI
-        run: |
-          cd repo
           pip install -r requirements.txt
           pip install allure-pytest
-          REM Download Allure CLI
-          curl -L -o allure.zip https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
-          tar -xf allure.zip
-          setx ALLURE_HOME "%CD%\allure-2.29.0"
-          setx PATH "%PATH%;%CD%\allure-2.29.0\bin"
-        shell: cmd
 
-      - name: Run pytest for marker
+      - name: Run pytest for marker ${{ matrix.marker }}
         run: |
-          cd repo
-          python -m pytest -v -s -m %{{ matrix.marker }} --alluredir=allure-results-%{{ matrix.marker }} || exit 0
-        shell: cmd
+          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }}
 
-      - name: Collect Allure results
-        run: |
-          if not exist merged-results mkdir merged-results
-          xcopy /E /I repo\allure-results-* merged-results\
-        shell: cmd
+      - name: Upload Allure results
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-${{ matrix.marker }}
+          path: allure-results-${{ matrix.marker }}
 
-  merge-deploy:
-    runs-on: [self-hosted, windows]
+  merge_and_deploy:
     needs: test
-    if: always()
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
 
     steps:
-      - name: Clone gh-pages branch
-        run: |
-          if exist site rmdir /S /Q site
-          git clone --branch gh-pages https://github.com/${{ github.repository_owner }}/python-automation.git site
-        shell: cmd
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Generate timestamp
+        id: ts
+        run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+
+      # Download artifacts from test matrix
+      - name: Download Allure artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-smoke
+          path: merged-results/smoke
+        continue-on-error: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: allure-regression
+          path: merged-results/regression
+        continue-on-error: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: allure-sanity
+          path: merged-results/sanity
+        continue-on-error: true
 
       - name: Merge Allure results
         run: |
-          mkdir site\allure-results
-          xcopy /E /I merged-results\* site\allure-results\
-        shell: cmd
+          mkdir -p allure-results
+          if [ -d merged-results ]; then
+            cp -r merged-results/*/* allure-results/ || true
+          fi
+          echo "Merged Allure JSON files:"
+          find allure-results -name "*.json"
+
+      - name: Check if any Allure JSON exists
+        id: check_json
+        run: |
+          count=$(find allure-results -name "*.json" | wc -l)
+          echo "JSON_COUNT=$count" >> $GITHUB_OUTPUT
+
+      - name: Prepare site folder
+        run: mkdir -p site
+
+      - name: Install Allure CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip wget
+          wget -q https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
+          unzip -o allure-2.29.0.zip -d /opt/allure
+          sudo ln -sf /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
 
       - name: Generate Allure report
+        if: steps.check_json.outputs.JSON_COUNT != '0'
         run: |
-          cd site
-          allure generate allure-results -o reports --clean
-        shell: cmd
+          mkdir -p site/reports/${{ steps.ts.outputs.TS }}
+          allure generate allure-results -o site/reports/${{ steps.ts.outputs.TS }} --clean
+          rm -rf site/latest
+          cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
 
-      - name: Commit & push reports
+      - name: Create minimal site if no reports
+        if: steps.check_json.outputs.JSON_COUNT == '0'
+        run: echo "<html><body><h2>No reports generated</h2></body></html>" > site/index.html
+
+      - name: Generate reports index
+        if: steps.check_json.outputs.JSON_COUNT != '0'
         run: |
-          cd site
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add reports
-          git commit -m "Update Allure report"
-          git push origin gh-pages
-        shell: cmd
+          echo "<html><body><h1>All Reports</h1><ul>" > site/reports/index.html
+          for dir in site/reports/*/ ; do
+            ts=$(basename "$dir")
+            if [[ "$ts" != "latest" ]]; then
+              echo "<li><a href=\"./$ts/\">Report $ts</a></li>" >> site/reports/index.html
+            fi
+          done
+          echo "</ul></body></html>" >> site/reports/index.html
+
+      - name: Ensure root index.html exists
+        run: |
+          if [ ! -f site/index.html ]; then
+            echo "<html><body>
+            <h1>Allure Reports</h1>
+            <ul>
+              <li><a href='./latest/'>Latest Report</a></li>
+              <li><a href='./reports/'>All Reports</a></li>
+            </ul>
+            </body></html>" > site/index.html
+          fi
+
+      - name: Debug site contents
+        run: ls -R site
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./site
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+
+      - name: Print Allure URLs
+        run: |
+          echo "Latest Report:"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.repository.name }}/latest/"
+          echo "All Reports:"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.repository.name }}/reports/"

@@ -17,6 +17,19 @@ class NewAccountPage(Base):
         alert = self.getText(Amazon.alert)
         self.log.info(f"alert message:{alert}.")
 
+    def add_itemtocart(self):
+        self.click(Amazon.addtocart)
+        self.click(Amazon.cartlink)
+        self.click(Amazon.checkout)
+        self.sendText(Amazon.firstname,'test')
+        self.sendText(Amazon.lastname,'test')
+        self.sendText(Amazon.zipcode,'560017')
+        self.click(Amazon.continuebtn)
+        self.click(Amazon.finish)
+        self.click(Amazon.backbtn)
+
+
+
     def login_validcredential(self,email,password):
         time.sleep(5)
         self.sendText(Amazon.email_field, email)

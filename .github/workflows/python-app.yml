@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        marker: [smoke, regression, sanity]
+        keyword: [instagram, facebook]   # run keywords in parallel
 
     steps:
       - name: Checkout code
@@ -55,162 +55,12 @@ jobs:
           Xvfb :99 -screen 0 1920x1080x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
 
-      - name: Run pytest for marker ${{ matrix.marker }}
+      - name: Run pytest for regression and keyword ${{ matrix.keyword }}
         run: |
-          pytest -v -s -m "${{ matrix.marker }}" --alluredir=allure-results-${{ matrix.marker }} || true
+          pytest -v -s -m "regression" -k "${{ matrix.keyword }}" --alluredir=allure-results-regression-${{ matrix.keyword }} || true
 
-      - name: Upload Allure results for this marker
+      - name: Upload Allure results for regression keyword ${{ matrix.keyword }}
         uses: actions/upload-artifact@v4
         with:
-          name: allure-${{ matrix.marker }}
-          path: allure-results-${{ matrix.marker }}
-
-  merge:
-    runs-on: ubuntu-latest
-    needs: test
-    if: always()
-
-    steps:
-      - name: Checkout gh-pages (if exists)
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: existing-pages
-          fetch-depth: 0
-        continue-on-error: true
-
-      - name: Set Git identity
-        run: |
-          cd existing-pages || exit
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-      - name: Ensure gh-pages branch exists
-        run: |
-          cd existing-pages || exit
-          if ! git show-ref --verify --quiet refs/heads/gh-pages; then
-            git checkout --orphan gh-pages
-            git commit --allow-empty -m "Initial gh-pages commit"
-            git push origin gh-pages
-          fi
-
-      - name: Checkout full repo
-        uses: actions/checkout@v4
-
-      - name: Generate timestamp
-        id: ts
-        run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
-
-      # Download matrix artifacts safely
-      - name: Download allure-smoke
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-smoke
-          path: merged-results/smoke
-        continue-on-error: true
-
-      - name: Download allure-regression
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-regression
-          path: merged-results/regression
-        continue-on-error: true
-
-      - name: Download allure-sanity
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-sanity
-          path: merged-results/sanity
-        continue-on-error: true
-
-      - name: Merge Allure results
-        run: |
-          mkdir -p allure-results
-          if [ -d merged-results ]; then
-            cp -r merged-results/*/* allure-results/ || true
-          fi
-          echo "Merged Allure Results:"
-          find allure-results -name "*.json"
-
-      - name: Check if any Allure JSON exists
-        id: check_json
-        run: |
-          count=$(find allure-results -name "*.json" | wc -l)
-          echo "JSON_COUNT=$count" >> $GITHUB_OUTPUT
-
-      - name: Prepare site folder
-        run: mkdir -p site
-
-      - name: Create minimal site if no reports
-        if: steps.check_json.outputs.JSON_COUNT == '0'
-        run: echo "<html><body><h2>No reports generated</h2></body></html>" > site/index.html
-
-      - name: Install Allure CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip wget
-          wget -q https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
-          unzip -o allure-2.29.0.zip -d /opt/allure
-          sudo ln -sf /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
-
-      - name: Generate Allure report
-        if: steps.check_json.outputs.JSON_COUNT != '0'
-        run: |
-          mkdir -p site/reports/${{ steps.ts.outputs.TS }}
-          allure generate allure-results -o site/reports/${{ steps.ts.outputs.TS }} --clean
-          rm -rf site/latest
-          cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
-
-      - name: Generate Allure report
-        if: steps.check_json.outputs.JSON_COUNT != '0'
-        run: |
-          mkdir -p site/reports/${{ steps.ts.outputs.TS }}
-          allure generate allure-results -o site/reports/${{ steps.ts.outputs.TS }} --clean
-          rm -rf site/latest
-          cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
-
-      - name: Generate reports index
-        if: steps.check_json.outputs.JSON_COUNT != '0'
-        run: |
-          echo "<html><body><h1>All Reports</h1><ul>" > site/reports/index.html
-          for dir in site/reports/*/ ; do
-            ts=$(basename "$dir")
-            if [[ "$ts" != "latest" ]]; then
-              echo "<li><a href=\"./$ts/\">Report $ts</a></li>" >> site/reports/index.html
-            fi
-          done
-          echo "</ul></body></html>" >> site/reports/index.html
-
-      - name: Create root index.html
-        run: |
-          echo "<html><body>
-          <h1>Allure Reports</h1>
-          <ul>
-            <li><a href='./latest/'>Latest Report</a></li>
-            <li><a href='./reports/'>All Reports</a></li>
-          </ul>
-          </body></html>" > site/index.html
-
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: ./site
-
-  deploy:
-    needs: merge
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-
-    steps:
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
-
-      - name: Print Allure URL
-        run: |
-          echo "Latest Report:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
-          echo "All Reports:"
-          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"
- 
-
+          name: allure-regression-${{ matrix.keyword }}
+          path: allure-results-regression-${{ matrix.keyword }}

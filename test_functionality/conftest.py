@@ -11,7 +11,7 @@ def setup(request):
     chrome_options = webdriver.ChromeOptions()
 
     # CI-friendly options
-    chrome_options.add_argument("--headless=new")          # Latest headless mode
+    # chrome_options.add_argument("--headless=new")          # Latest headless mode
     chrome_options.add_argument("--no-sandbox")            # Required in GitHub Actions
     chrome_options.add_argument("--disable-dev-shm-usage") # Avoid limited /dev/shm errors
     chrome_options.add_argument("--disable-gpu")           # Disable GPU
@@ -19,6 +19,15 @@ def setup(request):
     chrome_options.add_argument("--lang=en-IN")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("useAutomationExtension", False)
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_argument("ignore-certificate-errors")
+    chrome_options.add_argument("disable-notifications")
+    prefs = {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.password_manager_leak_detection": False
+    }
+    chrome_options.add_experimental_option("prefs", prefs)
 
     # Initialize ChromeDriver
     s = Service(ChromeDriverManager().install())

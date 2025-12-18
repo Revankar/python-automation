@@ -21,8 +21,13 @@ class NewAccountPage(Base):
         self.click(Amazon.addtocart)
         self.click(Amazon.cartlink)
         self.click(Amazon.checkout)
+        try:
+            self.driver.switch_to.alert.accept()
+        except:pass
         self.sendText(Amazon.firstname,'test')
+        time.sleep(5)
         self.sendText(Amazon.lastname,'test')
+        time.sleep(5)
         self.sendText(Amazon.zipcode,'560017')
         self.click(Amazon.continuebtn)
         self.click(Amazon.finish)
@@ -43,9 +48,9 @@ class NewAccountPage(Base):
         time.sleep(5)
         self.sendText(Amazon.email_field, email)
         time.sleep(5)
-        self.sendText(Amazon.password_field, password)
+        self.clearAndSendText(Amazon.password_field, password)
+        time.sleep(5)
         self.click(Amazon.sign_in_btn)
-        self.driver.switch_to.alert.accept()
         self.log.info(f"signed in successfully.")
 
     def login_checkalert(self,email,password):

@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        keyword: [instagram, facebook]
+        keyword: [newprovide, reconnect]
 
     steps:
       - name: Checkout pytest-automation branch

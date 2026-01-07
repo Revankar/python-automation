@@ -1,14 +1,10 @@
 name: Python Test Automation with Allure Report
 
 on:
-  push:
-    branches:
-      - pytest-automation
+  schedule:
+    - cron: '0 11 * * 1-5'   # 4:00 PM IST (Weekdays)
 
   workflow_dispatch:
-
-  schedule:
-    - cron: '30 10 * * 1-5'
 
 permissions:
   contents: write
@@ -28,7 +24,7 @@ jobs:
         keyword: [instagram, facebook]
 
     steps:
-      - name: Checkout code
+      - name: Checkout pytest-automation branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0

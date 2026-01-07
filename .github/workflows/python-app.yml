@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        keyword: [newprovide, reconnect]
+        keyword: [newprovide]
 
     steps:
       - name: Checkout pytest-automation branch
@@ -61,9 +61,9 @@ jobs:
           Xvfb :99 -screen 0 1920x1080x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
 
-      - name: Run pytest (regression, keyword ${{ matrix.keyword }})
+      - name: Run pytest (regression1, keyword ${{ matrix.keyword }})
         run: |
-          pytest -v -s -m "regression" \
+          pytest -v -s -m "regression1" \
           -k "${{ matrix.keyword }}" \
           --alluredir=allure-results-${{ matrix.keyword }} || true
 

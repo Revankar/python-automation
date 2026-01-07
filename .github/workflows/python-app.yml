@@ -4,7 +4,11 @@ on:
   push:
     branches:
       - pytest-automation
+
   workflow_dispatch:
+
+  schedule:
+    - cron: '30 10 * * 1-5'
 
 permissions:
   contents: write

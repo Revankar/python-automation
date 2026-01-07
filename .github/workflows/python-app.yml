@@ -1,9 +1,11 @@
 name: Python Test Automation with Allure Report
 
 on:
+  # Scheduled run at 16:30 IST (11:00 UTC) on weekdays
   schedule:
-    - cron: '0 11 * * 1-5'   # 4:00 PM IST (Weekdays)
+    - cron: '10 11 * * 1-5'
 
+  # Manual trigger for testing
   workflow_dispatch:
 
 permissions:

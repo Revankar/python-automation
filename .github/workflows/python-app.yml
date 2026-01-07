@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        keyword: [instagram, facebook]   # run keywords in parallel
+        keyword: [instagram, facebook]
 
     steps:
       - name: Checkout code
@@ -50,17 +50,108 @@ jobs:
 
       - name: Start Xvfb
         run: |
-          sudo apt-get update
           sudo apt-get install -y xvfb
           Xvfb :99 -screen 0 1920x1080x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
 
-      - name: Run pytest for regression and keyword ${{ matrix.keyword }}
+      - name: Run pytest (regression, keyword ${{ matrix.keyword }})
         run: |
-          pytest -v -s -m "regression" -k "${{ matrix.keyword }}" --alluredir=allure-results-regression-${{ matrix.keyword }} || true
+          pytest -v -s -m "regression" \
+          -k "${{ matrix.keyword }}" \
+          --alluredir=allure-results-${{ matrix.keyword }} || true
 
-      - name: Upload Allure results for regression keyword ${{ matrix.keyword }}
+      - name: Upload Allure results (${{ matrix.keyword }})
         uses: actions/upload-artifact@v4
         with:
-          name: allure-regression-${{ matrix.keyword }}
-          path: allure-results-regression-${{ matrix.keyword }}
+          name: allure-${{ matrix.keyword }}
+          path: allure-results-${{ matrix.keyword }}
+
+  merge:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout gh-pages (existing reports)
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: existing-pages
+        continue-on-error: true
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Allure CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip wget
+          wget -q https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip
+          unzip -o allure-2.29.0.zip -d /opt/allure
+          sudo ln -sf /opt/allure/allure-2.29.0/bin/allure /usr/bin/allure
+
+      - name: Generate timestamp
+        id: ts
+        run: echo "TS=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+
+      - name: Download all Allure artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-*
+          path: merged-results
+          merge-multiple: true
+
+      - name: Merge Allure results
+        run: |
+          mkdir -p allure-results
+          cp -r merged-results/* allure-results/
+
+      - name: Prepare site directory
+        run: |
+          mkdir -p site/reports
+          if [ -d "existing-pages/reports" ]; then
+            cp -r existing-pages/reports/* site/reports/
+          fi
+
+      - name: Generate combined Allure report
+        run: |
+          mkdir -p site/reports/${{ steps.ts.outputs.TS }}
+          allure generate allure-results \
+            -o site/reports/${{ steps.ts.outputs.TS }} --clean
+
+      - name: Update latest report
+        run: |
+          rm -rf site/latest
+          cp -r site/reports/${{ steps.ts.outputs.TS }} site/latest
+
+      - name: Generate index page
+        run: |
+          echo "<html><body><h1>All Test Reports</h1><ul>" > site/reports/index.html
+          for dir in site/reports/*/ ; do
+            name=$(basename "$dir")
+            if [[ "$name" != "latest" ]]; then
+              echo "<li><a href=\"./$name/\">Report $name</a></li>" >> site/reports/index.html
+            fi
+          done
+          echo "</ul></body></html>" >> site/reports/index.html
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: merge
+    environment:
+      name: github-pages
+
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+
+      - name: Print Report URLs
+        run: |
+          echo "Latest Report:"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/latest/"
+          echo "All Reports:"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/"

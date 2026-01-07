@@ -3,7 +3,10 @@
 name: Python Test Automation with Allure Report
 
 on:
-  # Scheduled run at 16:30 IST (11:00 UTC) on weekdays
+  push:
+    branches:
+      - pytest-automation
+      # Scheduled run at 16:30 IST (11:00 UTC) on weekdays
   schedule:
     - cron: '10 11 * * 1-5'
 

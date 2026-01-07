@@ -4,7 +4,7 @@ from pages.newaccount import NewAccountPage
 @pytest.mark.newprovide
 class TestNewProvide(NewAccountPage):
 
-    @pytest.mark.regression
+    @pytest.mark.regression1
     def test_login_invalidcredential_facebook(self):
         self.login_invalidcredential(email="vidyarevankar22@gmail.com",password='dont know')
 
